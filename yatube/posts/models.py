@@ -71,9 +71,6 @@ class Follow(models.Model):
         related_name='following'
     )
 
-    def __str__(self) -> str:
-        return self.author
-
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -81,3 +78,6 @@ class Follow(models.Model):
                 name='unique_users'
             )
         ]
+
+    def __str__(self) -> str:
+        return self.author

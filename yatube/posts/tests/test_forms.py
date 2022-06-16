@@ -116,10 +116,9 @@ class CommentFormTest(TestCase):
         comment_count = Comment.objects.count()
         form_data = {
             'text': 'Тестовый текст комментария',
-            'post': self.post
         }
         self.authorized_client.post(
-            reverse('posts:add_comment', args=('1',)),
+            reverse('posts:add_comment', args=(CommentFormTest.post.pk,)),
             data=form_data,
             follow=True
         )
@@ -127,6 +126,6 @@ class CommentFormTest(TestCase):
         self.assertTrue(
             Comment.objects.filter(
                 text=form_data['text'],
-                post=form_data['post']
+                post=CommentFormTest.post
             ).exists()
         )

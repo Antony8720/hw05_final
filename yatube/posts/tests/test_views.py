@@ -329,7 +329,8 @@ class FollowTests(TestCase):
         """запись  не появляется в ленте тех, кто не подписан"""
         Follow.objects.create(user=self.user_follower,
                               author=self.user_following)
-        response = self.client_auth_following.get('/follow/')
+        response = self.client_auth_following.get(reverse
+                                                  ('posts:follow_index'))
         self.assertNotContains(response,
                                'Тестовая запись для теста подписок')
 
