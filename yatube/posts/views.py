@@ -3,7 +3,6 @@ from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from yatube.settings import LIMIT_PAGES
-
 from .forms import CommentForm, PostForm
 from .models import Follow, Group, Post, User
 
@@ -120,7 +119,6 @@ def add_comment(request, post_id):
 def follow_index(request):
     template = 'posts/follow.html'
     post_list = Post.objects.filter(author__following__user=request.user)
-    print(post_list)
     context = page_number(post_list, request)
     return render(request, template, context)
 
@@ -129,9 +127,8 @@ def follow_index(request):
 def profile_follow(request, username):
     user = request.user
     author = User.objects.get(username=username)
-    follower = Follow.objects.filter(user=user, author=author)
-    if user != author and not follower.exists():
-        Follow.objects.create(user=user, author=author)
+    if user != author:
+        Follow.objects.get_or_create(user=user, author=author)
     return redirect('posts:profile', author)
 
 
@@ -139,7 +136,5 @@ def profile_follow(request, username):
 def profile_unfollow(request, username):
     user = request.user
     author = get_object_or_404(User, username=username)
-    follower = Follow.objects.filter(user=user, author=author)
-    if follower.exists():
-        follower.delete()
+    Follow.objects.filter(user=user, author=author).delete()
     return redirect('posts:profile', author)

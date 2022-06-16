@@ -10,7 +10,6 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from yatube.settings import LIMIT_PAGES
-
 from ..models import Follow, Group, Post
 
 User = get_user_model()
@@ -236,8 +235,8 @@ class PostViewTest(TestCase):
                                               }))
         self.assertNotIn(post, response.context['page_obj'].object_list)
 
-    def test_index_cache(self):
-        """Проверка работы кэширования index"""
+    def test_index_cache_before_clear(self):
+        """Проверка работы кэширования index до очистки"""
         group = Group.objects.create(
             title='Тестовая группа для проверки кэша',
             slug='cache-group',
@@ -254,6 +253,22 @@ class PostViewTest(TestCase):
         response = self.authorized_client.get(reverse('posts:index'))
         content_after_create = response.content
         self.assertEqual(content_before_create, content_after_create)
+
+    def test_index_cache_after_clear(self):
+        """Проверка работы кэширования index после очистки"""
+        group = Group.objects.create(
+            title='Тестовая группа для проверки кэша',
+            slug='cache-group',
+            description='Тестовое описание'
+        )
+        user = User.objects.create_user(username='cache-test')
+        response = self.authorized_client.get(reverse('posts:index'))
+        content_before_create = response.content
+        Post.objects.create(
+            author=user,
+            text='Пост проверка cache',
+            group=group
+        )
         cache.clear()
         response = self.authorized_client.get(reverse('posts:index'))
         content_after_cache_clear = response.content
@@ -276,30 +291,79 @@ class FollowTests(TestCase):
 
     def test_follow(self):
         """Тест подписки"""
+        self.assertEqual(Follow.objects.all().count(), 0)
         self.client_auth_follower.get(reverse('posts:profile_follow',
                                               kwargs={'username':
                                                       self.user_following.
                                                       username}))
         self.assertEqual(Follow.objects.all().count(), 1)
+        self.assertTrue(
+            Follow.objects.filter(
+                user=self.user_follower,
+                author=self.user_following
+            ).exists()
+        )
 
     def test_unfollow(self):
         """Тест отписки"""
-        self.client_auth_follower.get(reverse('posts:profile_follow',
-                                              kwargs={'username':
-                                                      self.user_following.
-                                                      username}))
+        self.assertEqual(Follow.objects.all().count(), 0)
+        Follow.objects.create(
+            user=self.user_follower,
+            author=self.user_following
+        )
+        self.assertEqual(Follow.objects.all().count(), 1)
         self.client_auth_follower.get(reverse('posts:profile_unfollow',
                                       kwargs={'username':
                                               self.user_following.username}))
         self.assertEqual(Follow.objects.all().count(), 0)
 
-    def test_subscription_feed(self):
-        """запись появляется в ленте подписчиков"""
+    def test_record_is_displayed_by_subscribers(self):
+        """запись появляется в ленте тех, кто подписан"""
         Follow.objects.create(user=self.user_follower,
                               author=self.user_following)
         response = self.client_auth_follower.get('/follow/')
         post_text_0 = response.context['page_obj'][0].text
         self.assertEqual(post_text_0, 'Тестовая запись для теста подписок')
+
+    def test_record_is_not_displayed_for_non_subscribers(self):
+        """запись  не появляется в ленте тех, кто не подписан"""
+        Follow.objects.create(user=self.user_follower,
+                              author=self.user_following)
         response = self.client_auth_following.get('/follow/')
         self.assertNotContains(response,
                                'Тестовая запись для теста подписок')
+
+    def test_subscriptions_to_yourself(self):
+        """тест подписки на самого себя"""
+        self.assertEqual(Follow.objects.all().count(), 0)
+        self.client_auth_following.get(reverse('posts:profile_follow',
+                                               kwargs={'username':
+                                                       self.user_following.
+                                                       username}))
+        self.assertEqual(Follow.objects.all().count(), 0)
+        self.assertFalse(
+            Follow.objects.filter(
+                user=self.user_follower,
+                author=self.user_following
+            ).exists()
+        )
+
+    def test_repeat_subscription(self):
+        """Тест повторной подписки"""
+        self.assertEqual(Follow.objects.all().count(), 0)
+        self.client_auth_follower.get(reverse('posts:profile_follow',
+                                              kwargs={'username':
+                                                      self.user_following.
+                                                      username}))
+        self.assertEqual(Follow.objects.all().count(), 1)
+        self.assertTrue(
+            Follow.objects.filter(
+                user=self.user_follower,
+                author=self.user_following
+            ).exists()
+        )
+        self.client_auth_follower.get(reverse('posts:profile_follow',
+                                              kwargs={'username':
+                                                      self.user_following.
+                                                      username}))
+        self.assertEqual(Follow.objects.all().count(), 1)

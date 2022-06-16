@@ -116,6 +116,7 @@ class CommentFormTest(TestCase):
         comment_count = Comment.objects.count()
         form_data = {
             'text': 'Тестовый текст комментария',
+            'post': self.post
         }
         self.authorized_client.post(
             reverse('posts:add_comment', args=('1',)),
@@ -125,6 +126,7 @@ class CommentFormTest(TestCase):
         self.assertEqual(Comment.objects.count(), comment_count + 1)
         self.assertTrue(
             Comment.objects.filter(
-                text=form_data['text']
+                text=form_data['text'],
+                post=form_data['post']
             ).exists()
         )
